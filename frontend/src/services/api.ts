@@ -33,7 +33,7 @@ async function requestJson<T>(
       const payload = (await response.json()) as { errors?: string[] };
       if (payload.errors?.length) message = payload.errors.join(". ");
     } catch {
-      // Keep the safe fallback when the server does not return JSON.
+      // Preserve the safe fallback when the server does not return JSON.
     }
     throw new ApiError(message, response.status);
   }
@@ -41,16 +41,10 @@ async function requestJson<T>(
   return response.json() as Promise<T>;
 }
 
-/**
- * Fetch all expenses
- */
 export async function fetchExpenses(): Promise<Expense[]> {
   return requestJson<Expense[]>("/expenses");
 }
 
-/**
- * Fetch expenses for a specific year and month
- */
 export async function getExpenses(
   year: number,
   month: number,
@@ -60,16 +54,10 @@ export async function getExpenses(
   );
 }
 
-/**
- * Fetch all categories
- */
 export async function fetchCategories(): Promise<Category[]> {
   return requestJson<Category[]>("/categories");
 }
 
-/**
- * Create a custom category
- */
 export async function createCategory(name: string): Promise<Category> {
   return requestJson<Category>("/categories", {
     method: "POST",
@@ -78,32 +66,26 @@ export async function createCategory(name: string): Promise<Category> {
   });
 }
 
-/**
- * Create a new expense
- */
 export async function createExpense(data: ExpenseFormData): Promise<Expense> {
-  const expenseData = {
-    description: data.description,
-    amount: data.amount,
-    category_id: Number(data.categoryId),
-    date: data.date,
-  };
-
   return requestJson<Expense>("/expenses", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ expense: expenseData }),
+    body: JSON.stringify({
+      expense: {
+        description: data.description,
+        amount: data.amount,
+        category_id: Number(data.categoryId),
+        date: data.date,
+      },
+    }),
   });
 }
 
-/**
- * Update an existing expense
- */
 export async function updateExpense(
   id: number,
   data: Partial<ExpenseFormData>,
 ): Promise<Expense> {
-  const expenseData = {
+  const expense = {
     ...(data.description !== undefined && { description: data.description }),
     ...(data.amount !== undefined && { amount: data.amount }),
     ...(data.categoryId !== undefined && {
@@ -115,13 +97,10 @@ export async function updateExpense(
   return requestJson<Expense>(`/expenses/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ expense: expenseData }),
+    body: JSON.stringify({ expense }),
   });
 }
 
-/**
- * Delete an expense
- */
 export async function deleteExpense(id: number): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/expenses/${id}`, {
     method: "DELETE",
