@@ -3,8 +3,7 @@
  */
 
 import React from "react";
-import { ExpenseFormData } from "../types";
-import { EXPENSE_CATEGORIES } from "../constants/categories";
+import { Category, ExpenseFormData } from "../types";
 import { TextField, SelectBox, Button } from "../vibes";
 import { useExpenseForm } from "../hooks/useExpenseForm";
 
@@ -13,6 +12,7 @@ interface ExpenseFormProps {
   onSubmit: (data: ExpenseFormData) => Promise<void>;
   onCancel?: () => void;
   submitLabel?: string;
+  categories: Category[];
 }
 
 export function ExpenseForm({
@@ -20,12 +20,19 @@ export function ExpenseForm({
   onSubmit,
   onCancel,
   submitLabel = "Add Expense",
+  categories,
 }: ExpenseFormProps) {
-  const { formData, errors, isSubmitting, handleChange, handleSubmit } =
-    useExpenseForm({
-      initialData,
-      onSubmit,
-    });
+  const {
+    formData,
+    errors,
+    isSubmitting,
+    submitError,
+    handleChange,
+    handleSubmit,
+  } = useExpenseForm({
+    initialData,
+    onSubmit,
+  });
 
   const formStyle: React.CSSProperties = {
     display: "flex",
@@ -39,9 +46,9 @@ export function ExpenseForm({
     marginTop: "0.5rem",
   };
 
-  const categoryOptions = EXPENSE_CATEGORIES.map((category) => ({
-    value: category,
-    label: category,
+  const categoryOptions = categories.map((category) => ({
+    value: category.id.toString(),
+    label: category.name,
   }));
 
   return (
@@ -72,9 +79,10 @@ export function ExpenseForm({
       <SelectBox
         label="Category"
         options={categoryOptions}
-        value={formData.category}
-        onChange={(e) => handleChange("category", e.target.value)}
-        error={errors.category}
+        value={formData.categoryId}
+        onChange={(e) => handleChange("categoryId", e.target.value)}
+        error={errors.categoryId}
+        disabled={categories.length === 0}
         fullWidth
         required
       />
@@ -88,6 +96,12 @@ export function ExpenseForm({
         fullWidth
         required
       />
+
+      {submitError && (
+        <div role="alert" style={{ color: "#c62828", fontSize: "0.875rem" }}>
+          {submitError}
+        </div>
+      )}
 
       <div style={buttonGroupStyle}>
         <Button

@@ -11,6 +11,7 @@ const expense = (amount: number): Expense => ({
   id: amount,
   amount,
   description: "Test expense",
+  category_id: 1,
   category: "Other",
   date: "2026-07-31",
   created_at: "2026-07-31T00:00:00Z",

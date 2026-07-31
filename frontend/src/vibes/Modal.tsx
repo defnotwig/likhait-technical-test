@@ -2,7 +2,7 @@
  * Reusable Modal component
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import { COLORS } from "../constants/colors";
 
 interface ModalProps {
@@ -20,21 +20,51 @@ export function Modal({
   children,
   maxWidth = "500px",
 }: ModalProps) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
+      }
+
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((element) => !element.hasAttribute("disabled"));
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
 
     if (isOpen) {
       document.addEventListener("keydown", handleEscape);
       document.body.style.overflow = "hidden";
+      window.requestAnimationFrame(() => {
+        const target = dialogRef.current?.querySelector<HTMLElement>(
+          "[autofocus], input, select, textarea, button",
+        );
+        (target || dialogRef.current)?.focus();
+      });
     }
 
     return () => {
       document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "unset";
+      previouslyFocused?.focus();
     };
   }, [isOpen, onClose]);
 
@@ -88,12 +118,32 @@ export function Modal({
   };
 
   return (
-    <div style={overlayStyle} onClick={onClose}>
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+    <div
+      style={overlayStyle}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : "Dialog"}
+        tabIndex={-1}
+        style={modalStyle}
+      >
         {title && (
           <div style={headerStyle}>
-            <h2 style={titleStyle}>{title}</h2>
-            <button style={closeButtonStyle} onClick={onClose}>
+            <h2 id={titleId} style={titleStyle}>
+              {title}
+            </h2>
+            <button
+              type="button"
+              aria-label={`Close ${title}`}
+              style={closeButtonStyle}
+              onClick={onClose}
+            >
               ×
             </button>
           </div>
