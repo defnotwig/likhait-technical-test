@@ -6,6 +6,27 @@ import { Expense, ExpenseFormData } from "../types";
 
 const API_BASE_URL = "http://localhost:3000/api";
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+async function errorFromResponse(response: Response): Promise<ApiError> {
+  let message = "Request failed. Please try again.";
+  try {
+    const payload = (await response.json()) as { errors?: string[] };
+    if (payload.errors?.length) message = payload.errors.join(". ");
+  } catch {
+    // Preserve the safe fallback when the response is not JSON.
+  }
+  return new ApiError(message, response.status);
+}
+
 /**
  * Fetch all expenses
  */
@@ -70,7 +91,7 @@ export async function createExpense(data: ExpenseFormData): Promise<Expense> {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to create expense");
+    throw await errorFromResponse(response);
   }
 
   return response.json();
@@ -92,7 +113,7 @@ export async function updateExpense(
   });
 
   if (!response.ok) {
-    throw new Error("Failed to update expense");
+    throw await errorFromResponse(response);
   }
 
   return response.json();

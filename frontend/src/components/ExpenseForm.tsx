@@ -7,6 +7,7 @@ import { ExpenseFormData } from "../types";
 import { EXPENSE_CATEGORIES } from "../constants/categories";
 import { TextField, SelectBox, Button } from "../vibes";
 import { useExpenseForm } from "../hooks/useExpenseForm";
+import { formatDate } from "../utils/expenseUtils";
 
 interface ExpenseFormProps {
   initialData?: Partial<ExpenseFormData>;
@@ -21,11 +22,17 @@ export function ExpenseForm({
   onCancel,
   submitLabel = "Add Expense",
 }: ExpenseFormProps) {
-  const { formData, errors, isSubmitting, handleChange, handleSubmit } =
-    useExpenseForm({
-      initialData,
-      onSubmit,
-    });
+  const {
+    formData,
+    errors,
+    isSubmitting,
+    submitError,
+    handleChange,
+    handleSubmit,
+  } = useExpenseForm({
+    initialData,
+    onSubmit,
+  });
 
   const formStyle: React.CSSProperties = {
     display: "flex",
@@ -82,12 +89,19 @@ export function ExpenseForm({
       <TextField
         label="Date"
         type="date"
+        max={formatDate(new Date())}
         value={formData.date}
         onChange={(e) => handleChange("date", e.target.value)}
         error={errors.date}
         fullWidth
         required
       />
+
+      {submitError && (
+        <div role="alert" style={{ color: "#c62828", fontSize: "0.875rem" }}>
+          {submitError}
+        </div>
+      )}
 
       <div style={buttonGroupStyle}>
         <Button
