@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSafeTarget } from "./guard-target.mjs";
 import { composeSync, qaRoot, repositoryRoot, waitForUrl } from "./compose-helpers.mjs";
@@ -25,6 +25,10 @@ if (!artifacts.startsWith(`${path.resolve(qaRoot)}${path.sep}`)) {
 }
 await rm(artifacts, { recursive: true, force: true });
 await mkdir(artifacts, { recursive: true });
+// The pinned k6 image runs as a non-root user. A bind-mounted Linux runner
+// directory otherwise remains owner-writable only and silently loses its JSON
+// summary. This directory contains disposable test evidence only.
+if (process.platform !== "win32") await chmod(artifacts, 0o777);
 
 process.env.QA_EXPENSE_COUNT = profiles.includes("full") ? "100000" : profiles.includes("ci") ? "10000" : "1000";
 process.env.QA_BACKEND_URL = backendUrl;
