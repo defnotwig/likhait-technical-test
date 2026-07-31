@@ -31,7 +31,7 @@ function App() {
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
       />
-      <main style={mainStyle}>
+      <main className="app-main" style={mainStyle}>
         {currentPage === "history" && <HistoryPage />}
       </main>
     </div>

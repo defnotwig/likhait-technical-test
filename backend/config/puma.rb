@@ -23,6 +23,13 @@
 threads_count = ENV.fetch("RAILS_MAX_THREADS", 3)
 threads threads_count, threads_count
 
+# Use multiple CRuby processes when explicitly configured so CPU-heavy JSON
+# serialization is not limited to a single Global VM Lock. The default remains
+# one process for local development and backwards compatibility.
+workers_count = Integer(ENV.fetch("WEB_CONCURRENCY", "0"), 10)
+workers workers_count if workers_count.positive?
+preload_app! if workers_count.positive?
+
 # Specifies the `port` that Puma will listen on to receive requests; default is 3000.
 port ENV.fetch("PORT", 3000)
 

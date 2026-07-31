@@ -1,0 +1,21 @@
+{
+  "name": "likhait-qualification",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "qa:smoke": "node scripts/run-suite.mjs smoke",
+    "qa:ci": "node scripts/run-suite.mjs ci",
+    "qa:full": "node scripts/run-suite.mjs full",
+    "qa:breakpoint": "node scripts/run-suite.mjs breakpoint",
+    "qa:all": "node scripts/run-suite.mjs all",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@playwright/test": "1.62.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

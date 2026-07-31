@@ -108,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside style={sidebarStyle}>
+    <aside className="app-sidebar" style={sidebarStyle}>
       <div style={headerStyle}>
         <div style={logoStyle}>
           <span style={logoIconStyle}>$</span>

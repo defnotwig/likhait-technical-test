@@ -28,5 +28,11 @@ module Backend
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # Expense history responses can contain hundreds of records. Compressing
+    # JSON at the Rack boundary keeps the API contract unchanged while avoiding
+    # response-transfer saturation for browsers and other HTTP clients that
+    # advertise gzip support.
+    config.middleware.use Rack::Deflater
   end
 end

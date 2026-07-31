@@ -24,12 +24,11 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
   const [submitError, setSubmitError] = useState("");
 
   const handleChange = (field: keyof ExpenseFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error for this field when user starts typing
+    setFormData((previous) => ({ ...previous, [field]: value }));
+    setSubmitError("");
     if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
+      setErrors((previous) => ({ ...previous, [field]: undefined }));
     }
-    if (submitError) setSubmitError("");
   };
 
   const validateForm = (): boolean => {
@@ -49,24 +48,23 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
 
     if (!formData.date) {
       newErrors.date = "Date is required";
+    } else if (formData.date > formatDate(new Date())) {
+      newErrors.date = "Expense date cannot be in the future";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
     setSubmitError("");
     try {
       await onSubmit(formData);
-      // Reset form on success
       setFormData({
         amount: "",
         description: "",
@@ -75,9 +73,8 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
       });
       setErrors({});
     } catch (error) {
-      console.error("Form submission error:", error);
       setSubmitError(
-        error instanceof Error ? error.message : "Unable to save the expense.",
+        error instanceof Error ? error.message : "Unable to save expense.",
       );
     } finally {
       setIsSubmitting(false);

@@ -1,15 +1,12 @@
 class Api::ExpensesController < ApplicationController
   def index
-    expenses = Expense.includes(:category).order(created_at: :desc)
+    expenses = Expense.includes(:category).order(date: :desc, created_at: :desc, id: :desc)
 
-    if params[:year].present? && params[:month].present?
-      year = params[:year].to_i
-      month = params[:month].to_i
+    if params[:year].present? || params[:month].present?
+      date_range = requested_date_range
+      return render_invalid_period unless date_range
 
-      start_date = Date.new(year, month, 1)
-      end_date = start_date.end_of_month
-
-      expenses = expenses.where(created_at: start_date.beginning_of_day..end_date.end_of_day)
+      expenses = expenses.where(date: date_range)
     end
 
     render json: expenses.map { |expense| format_expense(expense) }
@@ -45,6 +42,21 @@ class Api::ExpensesController < ApplicationController
 
   def expense_params
     params.require(:expense).permit(:description, :amount, :category_id, :date)
+  end
+
+  def requested_date_range
+    return unless params[:year].present? && params[:month].present?
+
+    year = Integer(params[:year].to_s, 10)
+    month = Integer(params[:month].to_s, 10)
+    start_date = Date.new(year, month, 1)
+    start_date..start_date.end_of_month
+  rescue ArgumentError
+    nil
+  end
+
+  def render_invalid_period
+    render json: { errors: [ "Year and month must identify a valid calendar month" ] }, status: :unprocessable_entity
   end
 
   def format_expense(expense)
