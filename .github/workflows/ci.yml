@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUNDLE_GEMFILE: ${{ github.workspace }}/backend/Gemfile
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: expense_system_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      RAILS_ENV: test
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: ""
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3.7"
+          bundler-cache: true
+      - name: Prepare test database
+        working-directory: backend
+        run: bundle exec rails db:test:prepare
+      - name: Run RSpec
+        working-directory: backend
+        run: bundle exec rspec
+
+  backend-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3.7"
+          bundler-cache: true
+      - name: Run RuboCop
+        working-directory: backend
+        run: bin/rubocop -f github
+      - name: Run Brakeman
+        working-directory: backend
+        run: bin/brakeman --no-pager --no-exit-on-warn
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=critical
+      - run: npm test
+      - run: npm run build
+
+  infrastructure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
