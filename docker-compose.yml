@@ -50,6 +50,7 @@ services:
       - ./backend:/rails
     command: >
       sh -c "
+        rm -f tmp/pids/server.pid &&
         bundle exec rails db:migrate &&
         bundle exec rails runner 'load Rails.root.join(\"db/seeds.rb\") if Category.none?' &&
         bundle exec rails server -b 0.0.0.0
