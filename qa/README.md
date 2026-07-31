@@ -45,3 +45,13 @@ Configuration:
 Every run writes machine-readable evidence to `qa/artifacts/`: k6 summaries, resource samples, Playwright JUnit/HTML/traces, restart timings, adversarial API results, MySQL index/EXPLAIN output, Compose logs, chaos recovery timings, and the final status.
 
 `PASS_WITH_PRODUCTION_BLOCKERS` means the assessment behaviors met their gates while the production blockers in `QUALIFICATION_REPORT.md` remain unresolved. It does not mean the application is production-ready.
+
+## Capacity configuration
+
+The isolated stack sets `WEB_CONCURRENCY=2` and keeps five threads per Puma
+worker. Production operators should size workers against available CPU, memory,
+and database connections instead of copying that value blindly. Expense JSON
+responses use standard gzip content negotiation; the load profile advertises
+`Accept-Encoding: gzip`, as production browsers do, and k6 validates the
+decompressed response normally. Latency thresholds and correctness assertions
+remain unchanged.

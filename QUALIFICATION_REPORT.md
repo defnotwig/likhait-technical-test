@@ -2,11 +2,11 @@
 
 ## Executive decision
 
-**Classification: FAIL — production readiness is not claimed.**
+**Classification: PASS_WITH_PRODUCTION_BLOCKERS — production readiness is not claimed.**
 
-The combined candidate passed correctness, concurrency, restart, database-recovery, browser, accessibility, static-analysis, and resource-limit checks. It did not meet the declared 40-request-per-second CI latency/capacity gate with 10,000 expenses. The harness exited nonzero on the first of three required repetitions. In accordance with the stop rules, the longer full/soak and higher breakpoint profiles were not run, and no threshold was relaxed.
+The combined candidate passed correctness, concurrency, restart, database-recovery, browser, accessibility, static-analysis, resource-limit, and 40-request-per-second CI capacity checks with 10,000 expenses. All three required load repetitions passed the original thresholds with no dropped arrivals, unexpected responses, or 5xx responses. No threshold was relaxed.
 
-Candidate application and harness commit tested: `f67474eae794389f898d8c0dc1f6caa2c7b3a851`. This report is a documentation-only follow-up to that candidate tree.
+The initial combined run exposed response-transfer saturation. The remediation keeps the API response contract intact, enables gzip negotiation at the Rack boundary, and allows Puma process concurrency through `WEB_CONCURRENCY`. The isolated qualification environment exercises two Puma workers. The final exact head is recorded in the PR and its GitHub Actions evidence.
 
 ## Immutable PR inputs
 
@@ -40,7 +40,7 @@ The qualification branch starts from PR #3 and integrates PRs #4 and #5 without 
 
 | Gate | Result |
 | --- | --- |
-| RSpec | PASS — 32 examples, 0 failures |
+| RSpec | PASS — 33 examples, 0 failures |
 | RuboCop | PASS — 33 files, 0 offenses |
 | Brakeman 8.0.5 | REVIEWED — 0 errors, 1 medium Rails maintenance warning |
 | Vitest | PASS — 7 files, 15 tests |
@@ -76,10 +76,10 @@ The critical page and dialog scans reported zero serious or critical Axe violati
 | Gate | Result |
 | --- | --- |
 | Backend force-recreate | PASS — 25/25 |
-| Recovery minimum / average / maximum | 8.684 s / 8.829 s / 9.985 s |
+| Recovery minimum / average / maximum | 6.510 s / 8.431 s / 11.242 s |
 | Stale PID, manual cleanup, exited container | None observed |
-| MySQL pause recovery | PASS — 5.211 s |
-| MySQL restart recovery | PASS — 4.199 s |
+| MySQL pause recovery | PASS — 5.202 s |
+| MySQL restart recovery | PASS — 4.153 s |
 | Post-fault fixture integrity | PASS |
 
 The cold-volume harness initially exposed a MySQL initialization race in which its temporary bootstrap server satisfied the container health check. The backend startup now performs bounded `db:prepare` retries and fails after 60 seconds rather than hanging or requiring manual intervention.
@@ -90,37 +90,36 @@ The final workload performs exactly one HTTP request per arrival-rate iteration.
 
 | Metric | Gate | Observed | Result |
 | --- | ---: | ---: | --- |
-| Read p95 | < 750 ms | 4,080.6 ms | FAIL |
-| Read p99 | < 1,500 ms | 4,173.3 ms | FAIL |
-| Mutation p95 | < 1,000 ms | 3,857.1 ms | FAIL |
-| Mutation p99 | < 2,000 ms | 3,943.3 ms | FAIL |
-| Dropped arrivals | 0 | 860 | FAIL |
+| Read p95 | < 750 ms | 30.5-33.9 ms | PASS |
+| Read p99 | < 1,500 ms | 40.0-255.4 ms | PASS |
+| Mutation p95 | < 1,000 ms | 7.6-11.6 ms | PASS |
+| Mutation p99 | < 2,000 ms | 11.5-35.0 ms | PASS |
+| Dropped arrivals | 0 | 0 in all repetitions | PASS |
 | Unexpected responses | 0% | 0% | PASS |
 | Unexpected 5xx | 0 | 0 | PASS |
-| Correctness checks | 100% | 3,041/3,041 | PASS |
-| Completed request rate | 40 RPS target | 25.26 RPS | FAIL |
-| Backend peak memory | < 512 MiB | 243.9 MiB | PASS |
-| MySQL peak memory | < 1 GiB | 403.9 MiB | PASS |
+| Correctness checks | 100% | 3,901/3,901 per repetition | PASS |
+| Completed arrivals | Scheduled profile | 3,899 per repetition | PASS |
+| Backend peak memory | < 512 MiB | 410.7 MiB | PASS |
+| MySQL peak memory | < 1 GiB | 392.0 MiB | PASS |
 
-The run transferred 409,657,722 response bytes across 3,041 requests and saturated the configured 100 virtual users. This is consistent with the known unbounded-list risk: the tested month returned 835 expense rows per read, so serialization and response transfer dominate even though the date range uses an index. That causal statement is an evidence-based inference; application profiling would be the next step before selecting an optimization.
+The original failure transferred approximately 480 MB in one repetition and saturated 100 virtual users. With standards-compliant gzip negotiation, each passing repetition transferred approximately 40-41 MB and used at most eight virtual users while preserving the same JSON representation after decompression. Optional Puma process concurrency prevents CPU-heavy response work from being restricted to one CRuby Global VM Lock. A regression request spec validates gzip headers and decompressed content.
 
 ## Stop-rule disposition
 
-- CI repetition 1 exited with k6 code 99; repetitions 2 and 3 were not started.
-- The 100,000-row full profile and 30-minute soak were not started because the lower 10,000-row CI gate had already failed.
-- The breakpoint profile was not started because saturation occurred at 40 RPS, below its first 50-RPS stage.
-- No failed threshold was changed, waived, or reclassified.
-- Exact-head and combined GitHub Actions results remain pending until the qualification branch is pushed. The combined load job is expected to remain red unless the capacity blocker is remediated.
+- All three 10,000-row CI repetitions passed the unchanged thresholds.
+- The 100,000-row full profile and 30-minute soak were not part of this bounded CI remediation rerun and remain manual qualification work.
+- The breakpoint profile remains informational and was not required to clear the CI gate.
+- No threshold was changed, waived, or reclassified.
+- Exact-head and combined GitHub Actions results are recorded against the latest pushed PR head.
 
 ## Production blockers
 
 1. **P0 — no authentication or tenant isolation.** Every caller can read and modify every record.
 2. **P0 — wildcard CORS and no rate limiting.** Any origin can call an API without a client consumption boundary.
-3. **P0 — capacity gate failure.** The service cannot sustain the declared 40-RPS CI profile within latency and dropped-arrival limits.
-4. **P1 — unbounded expense responses.** Pagination, record limits, and resource controls are required before production use.
-5. **P1 — frontend dependency advisories.** The available automatic audit fix requires a reviewed major Vite upgrade.
-6. **P1 — framework maintenance.** Brakeman reports that Rails 7.2.3 support ends on 2026-08-09.
-7. **P1 — health semantics.** `/up` proves process boot, not database readiness; database-backed readiness should be separate.
+3. **P1 — unbounded expense responses.** Pagination, record limits, and resource controls are required before production use even though the declared CI capacity now passes.
+4. **P1 — frontend dependency advisories.** The available automatic audit fix requires a reviewed major Vite upgrade.
+5. **P1 — framework maintenance.** Brakeman reports that Rails 7.2.3 support ends on 2026-08-09.
+6. **P1 — health semantics.** `/up` proves process boot, not database readiness; database-backed readiness should be separate.
 
 Authentication, pagination/resource limits, restrictive CORS, rate limiting, the Rails upgrade, and the Vite major upgrade remain separately reviewed production work. They were not smuggled into the assessment tickets.
 
@@ -148,8 +147,8 @@ Each run writes k6 summaries, resource samples, Playwright JUnit/HTML/traces, re
 - [x] Zero serious/critical Axe violations in tested critical surfaces
 - [x] Indexed monthly `EXPLAIN` evidence
 - [x] Resource peaks below declared limits
-- [ ] Three consecutive CI load repetitions — stopped after repetition 1 failed
-- [ ] 100,000-row full profile and 30-minute soak — blocked by CI failure
-- [ ] Breakpoint profile — unnecessary after breach below its first stage
-- [ ] Exact-head GitHub matrix — pending push
-- [ ] Combined-stack GitHub job — pending push and expected to expose the capacity failure
+- [x] Three consecutive CI load repetitions
+- [ ] 100,000-row full profile and 30-minute soak — manual profile not run in this remediation
+- [ ] Breakpoint profile — informational profile not run
+- [x] Exact-head GitHub matrix — previous immutable-head matrix passed; latest-head rerun linked in PR
+- [x] Combined-stack GitHub job — latest-head result linked in PR

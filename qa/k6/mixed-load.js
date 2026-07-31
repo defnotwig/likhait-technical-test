@@ -127,6 +127,7 @@ export default function (data) {
   if (selector < 80) {
     const month = (__ITER % 12) + 1;
     const response = http.get(`${apiUrl}/expenses?year=2025&month=${month}`, {
+      headers: { "Accept-Encoding": "gzip" },
       tags: { operation: "read_month" },
     });
     record(response, 200, readDuration);

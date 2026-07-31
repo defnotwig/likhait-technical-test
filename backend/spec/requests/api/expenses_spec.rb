@@ -1,4 +1,6 @@
 require 'rails_helper'
+require 'stringio'
+require 'zlib'
 
 RSpec.describe "Api::Expenses", type: :request do
   let!(:food_category) { Category.create!(name: "Food") }
@@ -108,6 +110,26 @@ RSpec.describe "Api::Expenses", type: :request do
 
       expect(response).to have_http_status(:success)
       expect(select_queries.length).to be <= 2
+    end
+
+    it "compresses large JSON responses for clients that advertise gzip" do
+      25.times do |index|
+        Expense.create!(
+          description: "Compressible expense #{index}",
+          amount: index + 1,
+          category: food_category,
+          date: Date.new(2026, 7, 1) + index.days
+        )
+      end
+
+      get "/api/expenses",
+          params: { year: 2026, month: 7 },
+          headers: { "HTTP_ACCEPT_ENCODING" => "gzip" }
+
+      expect(response).to have_http_status(:success)
+      expect(response.headers["Content-Encoding"]).to eq("gzip")
+      expect(response.headers["Vary"]).to include("Accept-Encoding")
+      expect(Zlib::GzipReader.new(StringIO.new(response.body)).read).to include("Compressible expense")
     end
   end
 
