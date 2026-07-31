@@ -15,12 +15,13 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
   const [formData, setFormData] = useState<ExpenseFormData>({
     amount: initialData?.amount || "",
     description: initialData?.description || "",
-    category: initialData?.category || "",
+    categoryId: initialData?.categoryId || "",
     date: initialData?.date || formatDate(new Date()),
   });
 
   const [errors, setErrors] = useState<Partial<ExpenseFormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const handleChange = (field: keyof ExpenseFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -28,6 +29,7 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
+    if (submitError) setSubmitError("");
   };
 
   const validateForm = (): boolean => {
@@ -41,8 +43,8 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
       newErrors.description = "Description is required";
     }
 
-    if (!formData.category) {
-      newErrors.category = "Category is required";
+    if (!formData.categoryId) {
+      newErrors.categoryId = "Category is required";
     }
 
     if (!formData.date) {
@@ -61,18 +63,22 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
     }
 
     setIsSubmitting(true);
+    setSubmitError("");
     try {
       await onSubmit(formData);
       // Reset form on success
       setFormData({
         amount: "",
         description: "",
-        category: "",
+        categoryId: "",
         date: formatDate(new Date()),
       });
       setErrors({});
     } catch (error) {
       console.error("Form submission error:", error);
+      setSubmitError(
+        error instanceof Error ? error.message : "Unable to save the expense.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -82,16 +88,18 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
     setFormData({
       amount: initialData?.amount || "",
       description: initialData?.description || "",
-      category: initialData?.category || "",
+      categoryId: initialData?.categoryId || "",
       date: initialData?.date || formatDate(new Date()),
     });
     setErrors({});
+    setSubmitError("");
   };
 
   return {
     formData,
     errors,
     isSubmitting,
+    submitError,
     handleChange,
     handleSubmit,
     resetForm,

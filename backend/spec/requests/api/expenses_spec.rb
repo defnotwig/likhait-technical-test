@@ -14,6 +14,7 @@ RSpec.describe "Api::Expenses", type: :request do
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
       expect(json.length).to eq(2)
+      expect(json.first).to include("category_id", "category")
     end
 
     it "returns expenses in descending order by created_at" do
