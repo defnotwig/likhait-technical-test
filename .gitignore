@@ -65,3 +65,8 @@ yarn-error.log*
 
 # RSpec
 /backend/.rspec_status
+
+# Qualification artifacts and dependencies
+/qa/node_modules/
+/qa/artifacts/*
+!/qa/artifacts/.gitkeep

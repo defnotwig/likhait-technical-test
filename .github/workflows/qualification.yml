@@ -1,0 +1,190 @@
+name: Adversarial qualification
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Qualification profile
+        required: true
+        default: ci
+        type: choice
+        options: [smoke, ci, full, breakpoint]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qualification-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-heads:
+    name: PR ${{ matrix.pr }} exact head
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pr: 1
+            sha: afd2ea7073706d50d2877c4fbb1ecca08f722def
+          - pr: 2
+            sha: 04d9ef9212f4d2b7901576a272d5c61d9e27268d
+          - pr: 3
+            sha: bdd25c40a6888751da7f7099b1803eff3762ad78
+          - pr: 4
+            sha: b182026529f5c899347fd6a06f7324e766700092
+          - pr: 5
+            sha: 74827d96e4df37d262c7ca50fe15aae6955ebd30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: expense_system_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      RAILS_ENV: test
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: ""
+    steps:
+      - name: Check out qualification harness
+        uses: actions/checkout@v6
+
+      - name: Check out immutable PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.sha }}
+          path: target
+
+      - name: Verify exact revision
+        working-directory: target
+        run: test "$(git rev-parse HEAD)" = "${{ matrix.sha }}"
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3.7"
+
+      - name: Install backend dependencies
+        working-directory: target/backend
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Prepare test database
+        working-directory: target/backend
+        run: bundle exec rails db:test:prepare
+
+      - name: Run backend behavior and quality gates
+        working-directory: target/backend
+        run: |
+          mkdir -p ../artifacts
+          bundle exec rspec | tee ../artifacts/rspec.txt
+          bundle exec rubocop | tee ../artifacts/rubocop.txt
+          bundle exec brakeman --no-pager --no-exit-on-warn | tee ../artifacts/brakeman.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: target/frontend/package-lock.json
+
+      - name: Run frontend behavior, audit, and build gates
+        working-directory: target/frontend
+        run: |
+          npm ci
+          npm audit --json > ../artifacts/npm-audit.json || true
+          npm audit --audit-level=critical
+          npm test | tee ../artifacts/vitest.txt
+          npm run build | tee ../artifacts/frontend-build.txt
+
+      - name: Validate Compose
+        working-directory: target
+        run: docker compose config --quiet
+
+      - name: Exercise PR 2 restart reliability 25 times
+        if: matrix.pr == 2
+        working-directory: target
+        env:
+          DATABASE_PORT_FORWARD: "33308"
+        run: |
+          docker compose up --build -d
+          for iteration in $(seq 1 25); do
+            docker compose up -d --force-recreate backend
+            for _ in $(seq 1 45); do
+              if curl --fail --silent http://127.0.0.1:3000/up >/dev/null; then break; fi
+              sleep 1
+            done
+            curl --fail --silent http://127.0.0.1:3000/up >/dev/null
+            echo "restart ${iteration}/25 passed"
+          done | tee artifacts/backend-restarts.txt
+
+      - name: Collect exact-head Compose logs
+        if: always() && matrix.pr == 2
+        working-directory: target
+        run: docker compose logs --no-color > artifacts/compose.log || true
+
+      - name: Clean exact-head containers
+        if: always() && matrix.pr == 2
+        working-directory: target
+        env:
+          DATABASE_PORT_FORWARD: "33308"
+        run: docker compose down --volumes --remove-orphans || true
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-${{ matrix.pr }}-${{ matrix.sha }}
+          path: target/artifacts
+          if-no-files-found: error
+          retention-days: 14
+
+  combined-stack:
+    name: Combined adversarial stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: qa/package-lock.json
+
+      - name: Install qualification dependencies
+        working-directory: qa
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run combined qualification
+        working-directory: qa
+        env:
+          CI: "true"
+          QA_PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.profile || 'ci' }}
+          QA_RESTART_COUNT: "25"
+          QA_SEED: "20260801"
+        run: npm run "qa:${QA_PROFILE}"
+
+      - name: Force isolated-stack cleanup
+        if: always()
+        run: docker compose -p likhait_qa_20260801 -f qa/docker-compose.qualification.yml down --volumes --remove-orphans || true
+
+      - name: Upload combined evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: combined-qualification-${{ github.sha }}
+          path: qa/artifacts
+          if-no-files-found: error
+          retention-days: 14
