@@ -27,7 +27,7 @@ export function YearNavigation({
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "18px",
-    color: COLORS.secondary.s08,
+    color: COLORS.secondary.s09,
     transition: "all 0.2s",
   };
 

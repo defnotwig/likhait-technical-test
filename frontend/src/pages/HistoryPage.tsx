@@ -182,16 +182,16 @@ const HistoryPage: React.FC = () => {
   };
 
   return (
-    <div style={pageStyle}>
-      <div style={headerStyle}>
-        <div style={leftHeaderStyle}>
+    <div className="history-page" style={pageStyle}>
+      <div className="history-header" style={headerStyle}>
+        <div className="history-header-left" style={leftHeaderStyle}>
           <h1 style={titleStyle}>Expense History</h1>
           <YearNavigation
             currentYear={selectedYear}
             onYearChange={handleYearChange}
           />
         </div>
-        <div style={actionStyle}>
+        <div className="history-actions" style={actionStyle}>
           <Button
             variant="secondary"
             onClick={() => setIsCategoryModalOpen(true)}

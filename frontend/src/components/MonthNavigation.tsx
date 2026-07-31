@@ -89,12 +89,12 @@ export function MonthNavigation({
     cursor: "pointer",
     transition: "all 0.2s",
     background: currentMonth === month ? COLORS.primary.p05 : "white",
-    color: currentMonth === month ? "white" : COLORS.secondary.s08,
+    color: currentMonth === month ? "white" : COLORS.secondary.s09,
     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   });
 
   return (
-    <div style={wrapperStyle}>
+    <div className="month-navigation" style={wrapperStyle}>
       <button
         style={navigationButtonStyle}
         onClick={handlePreviousMonth}
@@ -108,7 +108,7 @@ export function MonthNavigation({
       >
         ←
       </button>
-      <div style={containerStyle}>
+      <div className="month-grid" style={containerStyle}>
         {MONTHS.map((month) => (
           <button
             key={month.value}

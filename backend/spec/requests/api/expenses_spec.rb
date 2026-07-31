@@ -72,6 +72,43 @@ RSpec.describe "Api::Expenses", type: :request do
 
       expect(JSON.parse(response.body).pluck("id")).to eq([ second.id, first.id ])
     end
+
+    it "returns a controlled error for incomplete or invalid periods" do
+      get "/api/expenses", params: { year: 2026 }
+
+      expect(response).to have_http_status(422)
+      expect(JSON.parse(response.body)["errors"]).to include("Year and month must identify a valid calendar month")
+
+      get "/api/expenses", params: { year: 2026, month: 13 }
+
+      expect(response).to have_http_status(422)
+    end
+
+    it "keeps expense query count constant as result size grows" do
+      25.times do |index|
+        Expense.create!(
+          description: "Expense #{index}",
+          amount: index + 1,
+          category: food_category,
+          date: Date.new(2026, 7, 1) + index.days
+        )
+      end
+
+      select_queries = []
+      subscriber = lambda do |_name, _started, _finished, _unique_id, payload|
+        next if payload[:name] == "SCHEMA" || payload[:cached]
+        next unless payload[:sql].lstrip.start_with?("SELECT")
+
+        select_queries << payload[:sql]
+      end
+
+      ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") do
+        get "/api/expenses", params: { year: 2026, month: 7 }
+      end
+
+      expect(response).to have_http_status(:success)
+      expect(select_queries.length).to be <= 2
+    end
   end
 
   describe "POST /api/expenses" do

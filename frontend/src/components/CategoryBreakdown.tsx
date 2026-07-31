@@ -33,6 +33,7 @@ const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
   };
 
   const totalStyle: React.CSSProperties = {
+    width: "100%",
     padding: "16px 24px",
     display: "flex",
     alignItems: "center",
@@ -40,12 +41,17 @@ const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
     borderBottom: `1px solid ${COLORS.secondary.s04}`,
     background: COLORS.secondary.s01,
     cursor: "pointer",
+    borderTop: "none",
+    borderRight: "none",
+    borderLeft: "none",
+    font: "inherit",
+    textAlign: "left",
   };
 
   const totalLabelStyle: React.CSSProperties = {
     fontSize: "14px",
     fontWeight: 600,
-    color: COLORS.secondary.s08,
+    color: COLORS.secondary.s09,
     letterSpacing: "0.05em",
   };
 
@@ -57,21 +63,19 @@ const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
 
   const totalCountStyle: React.CSSProperties = {
     fontSize: "14px",
-    color: COLORS.secondary.s07,
+    color: COLORS.secondary.s09,
     marginLeft: "auto",
   };
 
-  const toggleButtonStyle: React.CSSProperties = {
+  const toggleIndicatorStyle: React.CSSProperties = {
     width: "32px",
     height: "32px",
     background: COLORS.secondary.s03,
-    border: "none",
     borderRadius: "6px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    cursor: "pointer",
-    color: COLORS.secondary.s08,
+    color: COLORS.secondary.s09,
     transition: "all 0.2s",
     flexShrink: 0,
   };
@@ -123,7 +127,7 @@ const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
 
   const itemCountStyle: React.CSSProperties = {
     fontSize: "14px",
-    color: COLORS.secondary.s07,
+    color: COLORS.secondary.s09,
   };
 
   const itemAmountStyle: React.CSSProperties = {
@@ -134,37 +138,18 @@ const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
 
   return (
     <div style={containerStyle}>
-      <div
+      <button
+        type="button"
         style={totalStyle}
         onClick={() => setIsCollapsed(!isCollapsed)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setIsCollapsed(!isCollapsed);
-          }
-        }}
+        aria-expanded={!isCollapsed}
+        aria-controls="category-breakdown-list"
+        aria-label={`${isCollapsed ? "Expand" : "Collapse"} category breakdown`}
       >
         <span style={totalLabelStyle}>TOTAL:</span>
         <span style={totalAmountStyle}>{formatAmount(total)}</span>
         <span style={totalCountStyle}>({totalCount} transactions)</span>
-        <button
-          style={toggleButtonStyle}
-          aria-label={isCollapsed ? "Expand" : "Collapse"}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsCollapsed(!isCollapsed);
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = COLORS.secondary.s04;
-            e.currentTarget.style.color = COLORS.secondary.s10;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = COLORS.secondary.s03;
-            e.currentTarget.style.color = COLORS.secondary.s08;
-          }}
-        >
+        <span style={toggleIndicatorStyle} aria-hidden="true">
           <svg
             width="16"
             height="16"
@@ -177,11 +162,11 @@ const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
           >
             <path d="M8 11l-5-5h10z" />
           </svg>
-        </button>
-      </div>
+        </span>
+      </button>
 
       {!isCollapsed && (
-        <div style={listStyle}>
+        <div id="category-breakdown-list" style={listStyle}>
           {categories.map((category) => (
             <div
               key={category.category}
