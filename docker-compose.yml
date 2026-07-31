@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   db:
     image: mysql:8.0
@@ -10,10 +8,9 @@ services:
       MYSQL_USER: expense_user
       MYSQL_PASSWORD: expense_password
     ports:
-      - "3306:3306"
+      - "${DATABASE_PORT_FORWARD:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test:
         [
@@ -51,13 +48,11 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/rails
-      - backend_gems:/usr/local/bundle
     command: >
       sh -c "
-        bundle install &&
-        rails db:migrate &&
-        rails db:seed &&
-        rails server -b 0.0.0.0
+        bundle exec rails db:migrate &&
+        bundle exec rails runner 'load Rails.root.join(\"db/seeds.rb\") if Category.none?' &&
+        bundle exec rails server -b 0.0.0.0
       "
     networks:
       - expense_network
@@ -82,7 +77,6 @@ services:
 
 volumes:
   mysql_data:
-  backend_gems:
   frontend_node_modules:
 
 networks:
